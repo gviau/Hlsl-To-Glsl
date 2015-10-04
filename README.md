@@ -31,10 +31,10 @@ fix that.
 How to build
 ============
 **Cmake 2.8 is required**
-1. Create a folder named, for example, "build", in your repository root folder.
-2. Go in it
-3. Open a command shell with Administrator rights
-4. Run, from this folder you created in step 1, the following command:
+1.  Create a folder named, for example, "build", in your repository root folder.
+2.  Go in it
+3.  Open a command shell with Administrator rights
+4.  Run, from this folder you created in step 1, the following command:
 ```
 cmake ../. -G "Generator Name"
 ```
@@ -47,7 +47,7 @@ Here are some example depending of your OS:
 * For Linux, use "Unix Makefiles"
 * For Mac OS X, use "Unix Makefiles" or Xcode
 
-5. The project file, or makefiles, will then be generated. You can then compile the source.
+The project file, or makefiles, will then be generated. You can then compile the source.
 
 To use
 ======
