@@ -31,10 +31,10 @@ fix that.
 How to build
 ============
 **Cmake 2.8 is required**
-1.  Create a folder named, for example, "build", in your repository root folder.
-2.  Go in it
-3.  Open a command shell with Administrator rights
-4.  Run, from this folder you created in step 1, the following command:
+* Create a folder named, for example, "build", in your repository root folder.
+* Go in it
+* Open a command shell with Administrator rights
+* Run, from this folder you created in step 1, the following command:
 ```
 cmake ../. -G "Generator Name"
 ```
