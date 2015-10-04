@@ -1,0 +1,11 @@
+*.o
+*.swp
+doc/html
+doc/latex
+CMakeFiles
+Makefile
+CMakeCache.txt
+bin/
+lib/
+build/
+Log.html
