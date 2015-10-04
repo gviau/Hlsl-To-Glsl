@@ -379,9 +379,13 @@ vector<string> PreprocessTextures(const vector<Lexeme>& lexemes, string& outputG
     // Output the sampler states
     for (size_t i = 0; i < samplerStateTextureNames.size(); i++)
     {
+        size_t samplerIndex = atoi(samplerStateTextureNames[i].substr(samplerStateTextureNames[i].size() - 4, 1).c_str());
         size_t textureIndex = atoi(samplerStateTextureNames[i].substr(samplerStateTextureNames[i].size() - 2, 2).c_str());
         size_t dimension = textureNames[textureIndex].second;
-        outputGlsl += "layout(binding = " + to_string(i + 24) + ") uniform sampler" + to_string(dimension) + "D " + samplerStateTextureNames[i] + ";\n";
+
+        size_t idx = samplerStateNames[samplerIndex].second * originalTextureNames.size() + textureNames[textureIndex].first.second;
+
+        outputGlsl += "layout(binding = " + to_string(idx + 24) + ") uniform sampler" + to_string(dimension) + "D " + samplerStateTextureNames[i] + ";\n";
     }
 
     outputGlsl += "\n";
