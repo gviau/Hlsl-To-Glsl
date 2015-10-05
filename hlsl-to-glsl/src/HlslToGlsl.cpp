@@ -44,7 +44,7 @@ bool ConvertHlslToGlslFromSource(const string& hlslSource, const string& entryFu
 
 void WriteHeaderOfGlsl(string& outputGlsl)
 {
-    outputGlsl += "#version 420\n";   
+    outputGlsl += "#version 420\n";
 }
 
 }

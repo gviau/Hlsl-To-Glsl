@@ -27,6 +27,7 @@ bool isInEntryFunction = false;
 size_t entryFunctionLevel = 0;
 
 vector<string> samplerStateTextureNames;
+vector<string> samplerStateTextureNamesToUse;
 
 bool IsStructName(const string& name)
 {
@@ -74,7 +75,7 @@ string GetSamplerStateTextureName(const string& samplerStateName, const string& 
         string comp = samplerStateName + textureName;
         if (samplerStateTextureNames[i].substr(0, samplerStateTextureNames[i].size() - 5) == comp)
         {
-            return samplerStateTextureNames[i];
+            return samplerStateTextureNamesToUse[i];
         }
     }
 
@@ -384,8 +385,16 @@ vector<string> PreprocessTextures(const vector<Lexeme>& lexemes, string& outputG
         size_t dimension = textureNames[textureIndex].second;
 
         size_t idx = samplerStateNames[samplerIndex].second * originalTextureNames.size() + textureNames[textureIndex].first.second;
+        
+        string nameIndex = "";
+        stringstream ss;
+        ss << "_" << samplerIndex << "_" << setfill('0') << setw(2) << textureIndex;
+        nameIndex = ss.str();
+        string nameToUse = "texture" + nameIndex;
 
-        outputGlsl += "layout(binding = " + to_string(idx + 24) + ") uniform sampler" + to_string(dimension) + "D " + samplerStateTextureNames[i] + ";\n";
+        samplerStateTextureNamesToUse.push_back(nameToUse);
+
+        outputGlsl += "uniform sampler" + to_string(dimension) + "D " + nameToUse + ";\n";
     }
 
     outputGlsl += "\n";
