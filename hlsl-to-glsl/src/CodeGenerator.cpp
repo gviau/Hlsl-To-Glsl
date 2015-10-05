@@ -29,6 +29,8 @@ size_t entryFunctionLevel = 0;
 vector<string> samplerStateTextureNames;
 vector<string> samplerStateTextureNamesToUse;
 
+string glPositionName = "";
+
 bool IsStructName(const string& name)
 {
     for (const string& structName : structNames)
@@ -653,13 +655,16 @@ void InterpretColon(const vector<Lexeme>& lexemes, size_t& lexemeIndex, bool isV
 
         insideOfStruct = true;
 
-        semantics.push_back(semanticType + semanticName + ";\n");
+        bool ignoreFollowingSemantic = false;
 
         if (isVertexShader)
         {
             if (lexemes[lexemeIndex + 1].m_Token == "SV_POSITION")
             {
+                glPositionName = lexemes[lexemeIndex - 1].m_Token;
                 isOutputSemanticStruct = true;
+
+                ignoreFollowingSemantic = true;
             }
         }
         else
@@ -668,6 +673,11 @@ void InterpretColon(const vector<Lexeme>& lexemes, size_t& lexemeIndex, bool isV
             {
                 isOutputSemanticStruct = true;
             }
+        }
+
+        if (!ignoreFollowingSemantic)
+        {
+            semantics.push_back(semanticType + semanticName + ";\n");
         }
 
         lexemeIndex += 2;
@@ -858,6 +868,16 @@ void InterpretType(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& o
 void InterpretVariableName(const vector<Lexeme>& lexemes, const string& entryFunctionName, const vector<string>& originalTextureNames, size_t& lexemeIndex, string& outputGlsl)
 {
     const Lexeme& lexeme = lexemes[lexemeIndex];
+
+    // Special case for the SV_POSITION semantic
+    if (isInEntryFunction && glPositionName != "")
+    {
+        if (lexeme.m_Token == glPositionName)
+        {
+            outputGlsl += "gl_Position";
+            return;
+        }
+    }
 
     // Special case for texture names : if we find one of the original texture names, check if there is a dot, then the Sample keyword followed by a (
     if (find(originalTextureNames.begin(), originalTextureNames.end(), lexeme.m_Token) != originalTextureNames.end())
