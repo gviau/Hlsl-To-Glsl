@@ -18,9 +18,6 @@ textures found in the original Hlsl program.
 
 Known issues
 ============
-* The **mul** HLSL keyword can have several inputs embedded in it, such as this example: mul(matrix1, mul(matrix2, float4(vertex, 1.0))). However,
-the parse currently assumes that the **mul** operation will only have 2 non-nested parameters, such as: mul(matrix1, vertex). I will eventually
-fix that.
 * Some built-in HLSL functions are not supported yet, namely **clip**, **fmod** and **log10**.
 * Only vertex and fragment shaders are supported right now.
 * Block comments /* */ are not supported yet.

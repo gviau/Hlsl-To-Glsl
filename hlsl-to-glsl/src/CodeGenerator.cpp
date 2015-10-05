@@ -501,6 +501,100 @@ void InterpretBitwiseOperator(const vector<Lexeme>& lexemes, size_t& lexemeIndex
     outputGlsl += " " + lexeme.m_Token;
 }
 
+void InterpretMulOperation(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& outputGlsl, size_t levelToStartAt, size_t levelToReach)
+{
+    // Start is the paranthesis
+    outputGlsl += "(";
+
+    size_t idx = 0;
+    size_t level = levelToStartAt;
+    while (true)
+    {
+        const Lexeme& nextLexeme = lexemes[lexemeIndex + 2 + idx];
+        if (nextLexeme.m_TokenClass == TokenClass_t::BUILTIN_FUNCTION)
+        {
+            if (nextLexeme.m_Token == "mul")
+            {
+                size_t tempIdx = lexemeIndex + 2 + idx;
+                string mulOutput = "";
+
+                InterpretMulOperation(lexemes, tempIdx, mulOutput, level + 1, level + 1);
+                level += 1;
+
+                outputGlsl += mulOutput;
+
+                idx += (tempIdx - (lexemeIndex + 2 + idx)) + 1;
+            }
+            else
+            {
+                size_t index = 0;
+                size_t size = _countof(hlslBuiltinFunctionsToGlsl);
+                for (; index < size; index++)
+                {
+                    if (nextLexeme.m_Token == hlslBuiltinFunctionsToGlsl[index])
+                    {
+                        break;
+                    }
+                }
+
+                // There are a few special cases
+                //  1. mul in HLSL is simply the * operator in GLSL
+                //  2. saturate in HLSL is min(1.0, max(0.0, x)) where x is the value to saturate
+                if (nextLexeme.m_Token == "saturate")
+                {
+                    // TODO
+                    // For now we assume that the three next lexemes are a opened paranthesis, a variable name and a closed paranthesis
+                    outputGlsl += " " + hlslBuiltinFunctionsToGlsl[index + 1] + lexemes[lexemeIndex + 2 + idx + 2].m_Token + ")";
+                    idx += 3;
+                }
+                else
+                {
+                    outputGlsl += " " + hlslBuiltinFunctionsToGlsl[index + 1];
+                }
+
+                idx += 1;
+            }
+
+            continue;
+        }
+        else if (nextLexeme.m_TokenClass == TokenClass_t::TYPE)
+        {
+            size_t index = 0;
+            size_t size = _countof(hlslTypesMappingToGlsl);
+            for (; index < size; index++)
+            {
+                if (nextLexeme.m_Token == hlslTypesMappingToGlsl[index])
+                {
+                    break;
+                }
+            }
+
+            outputGlsl += hlslTypesMappingToGlsl[index + 1] + " ";
+            idx += 1;
+            continue;
+        }
+        else if (nextLexeme.m_TokenClass == TokenClass_t::CLOSED_PARANTHESIS)
+        {
+            level -= 1;
+        }
+        else if (nextLexeme.m_TokenClass == TokenClass_t::OPENED_PARANTHESIS)
+        {
+            level += 1;
+        }
+        else if (nextLexeme.m_TokenClass == TokenClass_t::COMMA && level == levelToReach)
+        {
+            break;
+        }
+
+        outputGlsl += nextLexeme.m_Token;
+
+        idx += 1;
+    }
+        
+    outputGlsl += " * ";
+    lexemeIndex += 2 + idx;
+}
+
 void InterpretBuiltinFunction(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& outputGlsl)
 {
     const Lexeme& lexeme = lexemes[lexemeIndex];
@@ -527,15 +621,7 @@ void InterpretBuiltinFunction(const vector<Lexeme>& lexemes, size_t& lexemeIndex
     }
     else if (lexeme.m_Token == "mul")
     {
-        // TODO
-        // The big problem with mul is that the statement could embed other statements, so we have to parse pretty much everything until
-        // we resolve the current mul operation completely
-        // For now, we assume that mul only contains the two variables to multiply
-        const string& firstVariable = lexemes[lexemeIndex + 2].m_Token;
-        const string& secondVariable = lexemes[lexemeIndex + 4].m_Token;
-
-        outputGlsl += " " + firstVariable + " * " + secondVariable;
-        lexemeIndex += 5;
+        InterpretMulOperation(lexemes, lexemeIndex, outputGlsl, 1, 1);
     }
     else
     {
@@ -733,13 +819,14 @@ void InterpretOpenedCurlyBracket(const vector<Lexeme>& lexemes, size_t& lexemeIn
 
 void InterpretOpenedParanthesis(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& outputGlsl)
 {
-    // Special case: casting
+    // Special case: casting. Casting can be in two forms:
+    //  1. (float3)val;                     -> Simple cast of a single variable
+    //  2. (float3)(mul(val + val2, ...))   -> more complex version
     const Lexeme& nextLexeme = lexemes[lexemeIndex + 1];
     const Lexeme& thirdLexeme = lexemes[lexemeIndex + 2];
     const Lexeme& variableLexeme = lexemes[lexemeIndex + 3];
     const Lexeme& semiColonLexeme = lexemes[lexemeIndex + 4];
-    if (nextLexeme.m_TokenClass == TokenClass_t::TYPE && thirdLexeme.m_TokenClass == TokenClass_t::CLOSED_PARANTHESIS &&
-        variableLexeme.m_TokenClass == TokenClass_t::VARIABLE_NAME && semiColonLexeme.m_TokenClass == TokenClass_t::SEMICOLUMN)
+    if (nextLexeme.m_TokenClass == TokenClass_t::TYPE && thirdLexeme.m_TokenClass == TokenClass_t::CLOSED_PARANTHESIS)
     {
         size_t index = 0;
         size_t size = _countof(hlslTypesMappingToGlsl);
@@ -751,8 +838,16 @@ void InterpretOpenedParanthesis(const vector<Lexeme>& lexemes, size_t& lexemeInd
             }
         }
 
-        outputGlsl += hlslTypesMappingToGlsl[index + 1] + "(" + variableLexeme.m_Token + ");\n";
-        lexemeIndex += 4;
+        if (variableLexeme.m_TokenClass == TokenClass_t::VARIABLE_NAME)
+        {
+            outputGlsl += hlslTypesMappingToGlsl[index + 1] + "(" + variableLexeme.m_Token + ")";
+            lexemeIndex += 3;
+        }
+        else
+        {
+            outputGlsl += hlslTypesMappingToGlsl[index + 1];
+            lexemeIndex += 2;
+        }
     }
     else
     {
