@@ -148,7 +148,8 @@ string hlslFlowControl[] = {
     "case",
     "while",
     "return",
-    "else"
+    "else",
+    "const"
 };
 
 bool IsHlslType(const string& token);

@@ -249,17 +249,6 @@ void ConvertLexemesIntoGlsl(const vector<Lexeme>& lexemes, const string& entryFu
     {
         if (startOfLine)
         {
-            size_t indentation = currentIndentationLevel * 4;
-            if (lexemes[i].m_TokenClass == TokenClass_t::CLOSED_CURLY_BRACKET && !insideOfStruct)
-            {
-                indentation -= 4;
-            }
-
-            for (size_t j = 0; j < indentation; j++)
-            {
-                outputGlsl += " ";
-            }
-
             startOfLine = false;
         }
 
@@ -744,7 +733,31 @@ void InterpretOpenedCurlyBracket(const vector<Lexeme>& lexemes, size_t& lexemeIn
 
 void InterpretOpenedParanthesis(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& outputGlsl)
 {
-    outputGlsl += lexemes[lexemeIndex].m_Token + " ";
+    // Special case: casting
+    const Lexeme& nextLexeme = lexemes[lexemeIndex + 1];
+    const Lexeme& thirdLexeme = lexemes[lexemeIndex + 2];
+    const Lexeme& variableLexeme = lexemes[lexemeIndex + 3];
+    const Lexeme& semiColonLexeme = lexemes[lexemeIndex + 4];
+    if (nextLexeme.m_TokenClass == TokenClass_t::TYPE && thirdLexeme.m_TokenClass == TokenClass_t::CLOSED_PARANTHESIS &&
+        variableLexeme.m_TokenClass == TokenClass_t::VARIABLE_NAME && semiColonLexeme.m_TokenClass == TokenClass_t::SEMICOLUMN)
+    {
+        size_t index = 0;
+        size_t size = _countof(hlslTypesMappingToGlsl);
+        for (; index < size; index++)
+        {
+            if (nextLexeme.m_Token == hlslTypesMappingToGlsl[index])
+            {
+                break;
+            }
+        }
+
+        outputGlsl += hlslTypesMappingToGlsl[index + 1] + "(" + variableLexeme.m_Token + ");\n";
+        lexemeIndex += 4;
+    }
+    else
+    {
+        outputGlsl += lexemes[lexemeIndex].m_Token + " ";
+    }
 }
 
 void InterpretRegister(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& outputGlsl)
