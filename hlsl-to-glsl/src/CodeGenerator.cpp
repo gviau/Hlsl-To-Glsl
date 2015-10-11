@@ -748,6 +748,10 @@ void InterpretColon(const vector<Lexeme>& lexemes, size_t& lexemeIndex, bool isV
             {
                 isOutputSemanticStruct = true;
             }
+            else if (lexemes[lexemeIndex + 1].m_Token.find("SV_POSITION") != string::npos)
+            {
+                ignoreFollowingSemantic = true;
+            }
         }
 
         if (!ignoreFollowingSemantic)
