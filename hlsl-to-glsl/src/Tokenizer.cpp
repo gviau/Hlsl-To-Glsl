@@ -149,12 +149,17 @@ string hlslFlowControl[] = {
     "while",
     "return",
     "else",
-    "const"
+    "const",
+};
+
+string keywordsToIgnore[] = {
+    "static"
 };
 
 bool IsHlslType(const string& token);
 bool IsHlslFunction(const string& token);
 bool IsHlslFlowControl(const string& token);
+bool IsKeywordToIgnore(const string& token);
 vector<string> Strip(const string& input);
 void SeparateAdditionalTokens(const vector<char>& tokensToSeparate, vector<string>& tokens);
 
@@ -199,6 +204,11 @@ vector<Lexeme> ParseIntoLexemes(const string& input)
         while (lexeme.m_Token.back() == '\0')
         {
             lexeme.m_Token.pop_back();
+        }
+
+        if (IsKeywordToIgnore(lexeme.m_Token))
+        {
+            continue;
         }
 
         if (lexeme.m_Token.substr(0, 2) == "//")
@@ -353,6 +363,21 @@ bool IsHlslFlowControl(const string& token)
     for (size_t i = 0; i < numberOfHlslFlowControl; i++)
     {
         if (token == hlslFlowControl[i])
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool IsKeywordToIgnore(const string& token)
+{
+    const size_t numberOfKeywords = _countof(keywordsToIgnore);
+
+    for (size_t i = 0; i < numberOfKeywords; i++)
+    {
+        if (token == keywordsToIgnore[i])
         {
             return true;
         }

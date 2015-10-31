@@ -31,6 +31,30 @@ vector<string> samplerStateTextureNamesToUse;
 
 string glPositionName = "";
 
+void ResetGlobalVariables()
+{
+    currentIndentationLevel = 0;
+    startOfLine = true;
+    insideOfStruct = false;
+    hadAnySemanticsInStruct = false;
+    structNames.clear();
+    isOutputSemanticStruct = false;
+
+    structBufferIfNoSemanticsInStruct = "";
+    semantics.clear();
+
+    semanticStructNameToIgnore.clear();
+    semanticStructVariableToIgnore.clear();
+    mightAddSemanticStructNameToIgnore = false;
+    isInEntryFunction = false;
+    entryFunctionLevel = 0;
+
+    samplerStateTextureNames.clear();
+    samplerStateTextureNamesToUse.clear();
+
+    glPositionName = "";
+}
+
 bool IsStructName(const string& name)
 {
     for (const string& structName : structNames)
@@ -243,6 +267,8 @@ string hlslBuiltinFunctionsToGlsl[] = {
 
 void ConvertLexemesIntoGlsl(const vector<Lexeme>& lexemes, const string& entryFunctionName, bool isVertexShader, string& outputGlsl)
 {
+    ResetGlobalVariables();
+
     vector<string> originalTextureNames = PreprocessTextures(lexemes, outputGlsl);
 
     for (size_t i = 0; i < lexemes.size(); i++)
@@ -449,8 +475,15 @@ void InterpretArithmeticOperator(const vector<Lexeme>& lexemes, size_t& lexemeIn
         }
     }
 
+    // If there's an equal sign, then don't put a space afterwards
+    bool addSpace = true;
+    if (lexemes[lexemeIndex + 1].m_TokenClass == TokenClass_t::ASSIGNATION)
+    {
+        addSpace = false;
+    }
+
     // Simple arithmetic operator
-    outputGlsl += " " + lexeme.m_Token + " ";
+    outputGlsl += " " + lexeme.m_Token + ((addSpace) ? " " : "");
 }
 
 void InterpretAssignation(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& outputGlsl)
@@ -458,7 +491,7 @@ void InterpretAssignation(const vector<Lexeme>& lexemes, size_t& lexemeIndex, st
     const Lexeme& lexeme = lexemes[lexemeIndex];
 
     // Simple assignation
-    outputGlsl += " " + lexeme.m_Token + " ";
+    outputGlsl += lexeme.m_Token + " ";
 }
 
 void InterpretBitwiseOperator(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& outputGlsl)
