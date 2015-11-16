@@ -29,6 +29,9 @@ size_t entryFunctionLevel = 0;
 vector<string> samplerStateTextureNames;
 vector<string> samplerStateTextureNamesToUse;
 
+vector<string> uvNames;
+vector<string> semanticsForUvNames;
+
 string glPositionName = "";
 
 void ResetGlobalVariables()
@@ -51,6 +54,9 @@ void ResetGlobalVariables()
 
     samplerStateTextureNames.clear();
     samplerStateTextureNamesToUse.clear();
+
+    uvNames.clear();
+    semanticsForUvNames.clear();
 
     glPositionName = "";
 }
@@ -132,7 +138,7 @@ void InterpretStructureOperator(const vector<Lexeme>& lexemes, size_t& lexemeInd
 void InterpretTernaryOperator(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& outputGlsl);
 void InterpretTexture(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& outputGlsl);
 void InterpretType(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& outputGlsl);
-void InterpretVariableName(const vector<Lexeme>& lexemes, const string& entryFunctionName, const vector<string>& originalTextureNames, size_t& lexemeIndex, string& outputGlsl);
+void InterpretVariableName(const vector<Lexeme>& lexemes, const string& entryFunctionName, bool isVertexShader, const vector<string>& originalTextureNames, size_t& lexemeIndex, string& outputGlsl);
 
 string hlslTypesMappingToGlsl[] = {
     "bool", "bool",
@@ -335,6 +341,29 @@ vector<string> PreprocessTextures(const vector<Lexeme>& lexemes, string& outputG
             size_t samplerStateIndex = 0;
             size_t textureIndex = 0;
 
+            // Register the name of the UV coordinates first
+            string uvName = lexemes[i + 5].m_Token;
+
+            if (lexemes[i + 6].m_TokenClass != TokenClass_t::CLOSED_PARANTHESIS)
+            {
+                uvName += lexemes[i + 6].m_Token + lexemes[i + 7].m_Token;
+            }
+
+            bool registerUvName = true;
+            for (size_t j = 0; j < uvNames.size(); j++)
+            {
+                if (uvNames[j] == uvName)
+                {
+                    registerUvName = false;
+                    break;
+                }
+            }
+
+            if (registerUvName)
+            {
+                uvNames.push_back(uvName);
+            }
+
             for (size_t j = 0; j < samplerStateNames.size(); j++)
             {
                 if (samplerStateNames[j].first == lexemes[i + 3].m_Token)
@@ -450,7 +479,7 @@ void InterpretLexeme(const vector<Lexeme>& lexemes, const string& entryFunctionN
     case TokenClass_t::TEXTURE:                 InterpretTexture(lexemes, lexemeIndex, outputGlsl); break;
     case TokenClass_t::TERNARY_OPERATOR:        InterpretTernaryOperator(lexemes, lexemeIndex, outputGlsl); break;
     case TokenClass_t::TYPE:                    InterpretType(lexemes, lexemeIndex, outputGlsl); break;
-    case TokenClass_t::VARIABLE_NAME:           InterpretVariableName(lexemes, entryFunctionName, originalTextureNames, lexemeIndex, outputGlsl); break;
+    case TokenClass_t::VARIABLE_NAME:           InterpretVariableName(lexemes, entryFunctionName, isVertexShader, originalTextureNames, lexemeIndex, outputGlsl); break;
     }
 }
 
@@ -714,7 +743,13 @@ void InterpretClosedCurlyBracket(const vector<Lexeme>& lexemes, size_t& lexemeIn
                 outputGlsl += semantics[i];
             }
 
+            for (const string& val : semantics)
+            {
+                semanticsForUvNames.push_back(val);
+            }
+            
             semantics.clear();
+
             hadAnySemanticsInStruct = false;
             isOutputSemanticStruct = false;
 
@@ -759,7 +794,7 @@ void InterpretColon(const vector<Lexeme>& lexemes, size_t& lexemeIndex, bool isV
         InterpretType(lexemes, index, semanticType);
         index += 1;
 
-        InterpretVariableName(lexemes, "", vector<string>(), index, semanticName);
+        InterpretVariableName(lexemes, "", isVertexShader, vector<string>(), index, semanticName);
 
         insideOfStruct = true;
 
@@ -1010,7 +1045,7 @@ void InterpretType(const vector<Lexeme>& lexemes, size_t& lexemeIndex, string& o
     }
 }
 
-void InterpretVariableName(const vector<Lexeme>& lexemes, const string& entryFunctionName, const vector<string>& originalTextureNames, size_t& lexemeIndex, string& outputGlsl)
+void InterpretVariableName(const vector<Lexeme>& lexemes, const string& entryFunctionName, bool isVertexShader, const vector<string>& originalTextureNames, size_t& lexemeIndex, string& outputGlsl)
 {
     const Lexeme& lexeme = lexemes[lexemeIndex];
 
@@ -1035,6 +1070,25 @@ void InterpretVariableName(const vector<Lexeme>& lexemes, const string& entryFun
             {
                 outputGlsl += "texture(" + samplerStateTextureName;
                 lexemeIndex += 4;
+
+                if (!isVertexShader)
+                {
+                    // We also want to use the inverted uv 
+                    string uvName = lexemes[lexemeIndex + 2].m_Token + lexemes[lexemeIndex + 3].m_Token + lexemes[lexemeIndex + 4].m_Token;
+
+                    for (size_t i = 0; i < uvNames.size(); i++)
+                    {
+                        if (uvNames[i] == uvName)
+                        {
+                            string newUvName = "inv_" + uvNames[i].substr(uvNames[i].find('.') + 1);
+                            outputGlsl += ", " + newUvName;
+
+                            lexemeIndex += 4;
+                            break;
+                        }
+                    }
+                }
+
                 return;
             }
         }
@@ -1062,9 +1116,38 @@ void InterpretVariableName(const vector<Lexeme>& lexemes, const string& entryFun
                 // Don't forget to get the semantic variable declaration inside of the entry function
                 semanticStructVariableToIgnore.push_back(lexemes[lexemeIndex + 4].m_Token);
 
-                outputGlsl += "void " + entryFunctionName + "()\n";
-                lexemeIndex += 5;
-                
+                outputGlsl += "void " + entryFunctionName + "() { \n";
+                lexemeIndex += 6;
+
+                if (!isVertexShader)
+                {
+                    // Invert the y coordinates of the uv variables
+                    for (size_t i = 0; i < uvNames.size(); i++)
+                    {
+                        string uvName = uvNames[i].substr(uvNames[i].find('.') + 1);
+
+                        bool uvNameOk = false;
+                        for (const string& val : semanticsForUvNames)
+                        {
+                            if (val.find(uvName) != string::npos)
+                            {
+                                uvNameOk = true;
+                            }
+                        }
+
+                        if (!uvNameOk)
+                        {
+                            continue;
+                        }
+
+                        string newUvName = "inv_" + uvName;
+                        outputGlsl += "vec2 " + newUvName + " = " + uvName + ";\n";
+                        outputGlsl += newUvName + ".y = 1.0 - " + uvName + ".y;\n\n";
+
+                        entryFunctionLevel += 1;
+                    }
+                }
+
                 isInEntryFunction = true;
             }
             else if (nextLexeme.m_TokenClass == TokenClass_t::VARIABLE_NAME)
